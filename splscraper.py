@@ -7,11 +7,10 @@ import os
 from win10toast import ToastNotifier
 
 class MixerScraper():
-	scotty_uid = 2685
 	scraped_codes_file = "spl_scraped_codes.txt"
 	scrape_interval = 2
 	code_length = 17
-	code_pattern = r"AP[A-z]+[0-9A-F]+"
+	code_pattern = r"AP[A-Z]+[0-9A-F]+"
 
 	def __init__(self, chnl):
 		self.channel = chnl
