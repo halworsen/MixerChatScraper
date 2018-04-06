@@ -28,12 +28,12 @@ class MixerScraper():
 	def valid(self):
 		return (self.current_code == 200)
 
-	def win_notify(self, code):
-		self.toaster.show_toast("SPL Mixer Code",
-						   "New Mixer code scraped from {}!\n{}".format(self.channel, code),
-						   icon_path=None,
-						   duration=2.5,
-						   threaded=True)
+	def win_notify(self, title, text):
+		self.toaster.show_toast(title,
+							text,
+							icon_path=None,
+							duration=2.5,
+							threaded=True)
 
 		while self.toaster.notification_active():
 			time.sleep(0.1)
@@ -43,6 +43,8 @@ class MixerScraper():
 		while self.valid():
 			self.perform_scrape()
 			time.sleep(self.scrape_interval)
+		print("stopped scraping (invalid response code: {})".format(self.current_code))
+		self.win_notify("Scraping stopped!", "SPL code scraping has stopped (Response code: {})".format(self.current_code))
 
 	# setup with channel info
 	def fetch_channel_info(self):
@@ -99,7 +101,8 @@ class MixerScraper():
 		self.scraped_codes.append(code)
 		code += " ({})".format(user)
 
-		self.win_notify(code)
+		notif_text = "New Mixer code scraped from {}!\n{}".format(self.channel, code)
+		self.win_notify("New Mixer chest code scraped!", notif_text)
 		with open(self.scraped_codes_file, "a") as file:
 			time = datetime.datetime.now().time()
 			file.write(code + " - {}\n".format(time))
