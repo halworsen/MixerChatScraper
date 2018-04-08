@@ -5,12 +5,14 @@ import json
 import re
 import os
 from win10toast import ToastNotifier
+import pyperclip
 
 class MixerScraper():
 	scraped_codes_file = "spl_scraped_codes.txt"
 	scrape_interval = 2
 	code_length = 17
 	code_pattern = r"AP[A-Z]+[0-9A-F]+"
+	copy_to_clipboard = True
 
 	def __init__(self, chnl):
 		self.channel = chnl
@@ -98,11 +100,15 @@ class MixerScraper():
 
 	# notify with popup & write code to file
 	def store_code(self, code, user):
+		if self.copy_to_clipboard:
+			pyperclip.copy("/claimpromotion {}".format(code))
+
 		self.scraped_codes.append(code)
 		code += " ({})".format(user)
 
 		notif_text = "New Mixer code scraped from {}!\n{}".format(self.channel, code)
 		self.win_notify("New Mixer chest code scraped!", notif_text)
+
 		with open(self.scraped_codes_file, "a") as file:
 			time = datetime.datetime.now().time()
 			file.write(code + " - {}\n".format(time))
