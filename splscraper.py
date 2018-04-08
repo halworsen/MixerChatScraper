@@ -9,7 +9,8 @@ import pyperclip
 
 class MixerScraper():
 	scraped_codes_file = "spl_scraped_codes.txt"
-	scrape_interval = 2
+	scrape_interval = 1
+	retry_interval = 300
 	code_length = 17
 	code_pattern = r"AP[A-Z]+[0-9A-F]+"
 	copy_to_clipboard = True
@@ -19,14 +20,15 @@ class MixerScraper():
 		self.chnl_info_url = "https://mixer.com/api/v1/channels/{}".format(chnl)
 		self.chat_api_url = ""
 
+		self.scraping = False
 		self.scraped_codes = []
 
 		self.toaster = ToastNotifier()
 
-		self.fetch_channel_info()
+		self.update_channel_info()
 		self.load_codes()
 
-	# are we still valid
+	# are we still valid (aka has mixer shown us the door)
 	def valid(self):
 		return (self.current_code == 200)
 
@@ -34,7 +36,7 @@ class MixerScraper():
 		self.toaster.show_toast(title,
 							text,
 							icon_path=None,
-							duration=2.5,
+							duration=3,
 							threaded=True)
 
 		while self.toaster.notification_active():
@@ -42,14 +44,30 @@ class MixerScraper():
 
 	# scrape until mixer says fuck you and gives us the boot
 	def begin_scrape(self):
+		# its accuracy relies on the scrape interval while scraping but that's fine
+		# since it's only used to check if the channel has gone offline
+		timer = 0
+
 		while self.valid():
-			self.perform_scrape()
-			time.sleep(self.scrape_interval)
+			sleep_time = self.scrape_interval
+
+			if self.scraping:
+				self.perform_scrape()
+			else:
+				print("Channel is offline. Retrying in {} seconds".format(self.retry_interval))
+				sleep_time = self.retry_interval
+
+			# check if the channel is (still) online
+			if timer >= self.retry_interval:
+				self.update_channel_info()
+
+			time.sleep(sleep_time)
+			timer += sleep_time
 		print("stopped scraping (invalid response code: {})".format(self.current_code))
 		self.win_notify("Scraping stopped!", "SPL code scraping has stopped (Response code: {})".format(self.current_code))
 
-	# setup with channel info
-	def fetch_channel_info(self):
+	# grab channel info
+	def update_channel_info(self):
 		response = requests.get(self.chnl_info_url)
 		self.current_code = response.status_code
 
@@ -58,6 +76,8 @@ class MixerScraper():
 
 			self.channel_id = data["id"]
 			self.chat_api_url = "https://mixer.com/api/v1/chats/{}/history".format(self.channel_id)
+
+			self.scraping = data["online"]
 
 	# regex match for codes in some text and return it
 	def find_codes(self, text):
@@ -73,6 +93,7 @@ class MixerScraper():
 	def perform_scrape(self):
 		response = requests.get(self.chat_api_url)
 		self.current_code = response.status_code
+		print("Performing chat scrape... ({})".format(self.current_code))
 
 		history = json.loads(response.text)
 
@@ -85,6 +106,7 @@ class MixerScraper():
 				if codes:
 					for code in codes:
 						self.store_code(code, msg["user_name"])
+						print("Found a code! {}".format(code))
 
 	# load scraped codes from file
 	def load_codes(self):
